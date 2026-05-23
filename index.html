@@ -17,9 +17,9 @@
     --red:#EF4444; --red-dim:rgba(239,68,68,0.12);
   }
   * { margin:0; padding:0; box-sizing:border-box; -webkit-font-smoothing:antialiased; }
-  html,body { min-height:100%; font-family:'DM Sans',sans-serif; background:var(--black); color:var(--white); overflow-x:hidden; overflow-y:auto; }
+  html,body { height:100%; font-family:'DM Sans',sans-serif; background:var(--black); color:var(--white); overflow:hidden; }
   body::after { content:''; position:fixed; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px); pointer-events:none; z-index:9999; }
-  #app { min-height:100vh; display:flex; flex-direction:column; position:relative; overflow-x:hidden; }
+  #app { height:100vh; display:flex; flex-direction:column; position:relative; overflow:hidden; }
   .bg-glow { position:fixed; border-radius:50%; filter:blur(120px); pointer-events:none; z-index:0; }
   .bg-glow-1 { width:600px; height:600px; background:radial-gradient(circle,rgba(34,197,94,0.06) 0%,transparent 70%); top:-200px; right:-200px; }
   .bg-glow-2 { width:500px; height:500px; background:radial-gradient(circle,rgba(34,197,94,0.04) 0%,transparent 70%); bottom:-200px; left:-150px; }
@@ -35,11 +35,11 @@
   .progress-fill { height:100%; background:linear-gradient(90deg,var(--green2),var(--green),var(--green3)); border-radius:100px; transition:width 0.6s cubic-bezier(.4,0,.2,1); box-shadow:0 0 8px var(--green-glow); }
 
   /* MAIN */
-  .main { flex:1; position:relative; z-index:10; display:flex; align-items:flex-start; justify-content:center; padding:20px 20px 60px; overflow-y:auto; }
+  .main { flex:1; position:relative; z-index:10; display:flex; align-items:center; justify-content:center; padding:20px; overflow:hidden; }
 
   /* SCREENS */
-  .screen { width:100%; max-width:640px; position:absolute; opacity:0; transform:translateX(60px); transition:all 0.4s cubic-bezier(.4,0,.2,1); pointer-events:none; z-index:1; }
-  .screen.active { opacity:1; transform:translateX(0); pointer-events:all; position:relative; z-index:2; }
+  .screen { width:100%; max-width:640px; position:absolute; opacity:0; transform:translateX(60px); transition:all 0.4s cubic-bezier(.4,0,.2,1); pointer-events:none; }
+  .screen.active { opacity:1; transform:translateX(0); pointer-events:all; position:relative; }
   .screen.exit-left { opacity:0; transform:translateX(-60px); position:absolute; }
 
   /* EYEBROW */
@@ -174,6 +174,7 @@
 <!-- ════════════════════════════════════════════
      FACEBOOK PIXEL — BASE CODE
      Pixel ID: 1302960751990792
+     Evento automático: PageView (carregamento)
 ════════════════════════════════════════════ -->
 <script>
 !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -402,31 +403,27 @@ const S = {
 };
 
 const WH = 'https://n8n.xn--fluxaiautomao-7eb3d.com.br/webhook/quiz-gl';
-// ── UTM CAPTURE ──
-function getUTM() {
-  const p = new URLSearchParams(window.location.search);
-  return {
-    utm_source:   p.get('utm_source')   || 'direto',
-    utm_medium:   p.get('utm_medium')   || 'organico',
-    utm_campaign: p.get('utm_campaign') || 'sem-campanha',
-    utm_content:  p.get('utm_content')  || '',
-  };
-}
-const UTM = getUTM();
 
-// ── PIXEL CONFIG — Conversions API (server-side) ──
+// ══════════════════════════════════════════════════
+// PIXEL CONFIG — Conversions API (server-side)
+// ══════════════════════════════════════════════════
 const PX_ID    = '1302960751990792';
 const PX_TOKEN = 'EAAbv86ZAzlccBRpZCOPtHeQqyVEP0QG4trPCn2gglIHYkzLzjhRzZCTYwefdXbgHpMkFVjHcPfJrqJmDZBnEU8Hm0ZC1TaOUGjckGZAZCcVMS4dLZCrPagkyGVCL9B1pGn7b2jXx8tZA8weaBbmhOhoRNEcDnb3z3Im7acraqZCF1MdaZA11UIXxqxnzZABZC8lG1JOwI3gZDZD';
 
+// SHA-256 via Web Crypto API (necessário para hashing de PII antes de enviar ao Meta)
 async function sha256(str) {
   if (!str) return null;
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
 }
+
+// Normaliza telefone BR → formato E.164 sem + (ex: 5527999999999)
 function normPhone(raw) {
-  const d = raw.replace(/\D/g,'');
-  return d.startsWith('55') ? d : '55' + d;
+  const digits = raw.replace(/\D/g,'');
+  return digits.startsWith('55') ? digits : '55' + digits;
 }
+
+// Dispara evento via Conversions API (server-side) — deduplica com o pixel client-side via event_id
 async function sendCAPI(eventName, eventId, userData, customData) {
   const ud = {};
   if (userData.phone) ud.ph = await sha256(normPhone(userData.phone));
@@ -436,26 +433,32 @@ async function sendCAPI(eventName, eventId, userData, customData) {
     if (parts.length > 1) ud.ln = await sha256(parts[parts.length - 1]);
   }
   const ev = {
-    event_name: eventName, event_time: Math.floor(Date.now()/1000),
-    event_id: eventId, event_source_url: window.location.href,
-    action_source: 'website', user_data: ud
+    event_name:       eventName,
+    event_time:       Math.floor(Date.now() / 1000),
+    event_id:         eventId,
+    event_source_url: window.location.href,
+    action_source:    'website',
+    user_data:        ud
   };
   if (customData) ev.custom_data = customData;
   try {
-    fetch('https://graph.facebook.com/v19.0/'+PX_ID+'/events?access_token='+PX_TOKEN, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({data:[ev]}), keepalive:true
+    fetch('https://graph.facebook.com/v19.0/' + PX_ID + '/events?access_token=' + PX_TOKEN, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: [ev] }),
+      keepalive: true
     });
   } catch(e) {}
 }
-
-
+// ══════════════════════════════════════════════════
 
 // ── NAV ──
 function goNext() {
+  // ── PIXEL: ViewContent — usuário iniciou o quiz ──
   if (S.cur === 0) {
     fbq('track', 'ViewContent', {
-      content_name: 'Quiz - Diagnóstico Gratuito GL', content_category: 'quiz'
+      content_name:     'Quiz - Diagnóstico Gratuito GL',
+      content_category: 'quiz'
     });
   }
   go('screen-' + S.cur, 'screen-' + (S.cur + 1));
@@ -544,32 +547,35 @@ function submitForm() {
     qualificado:     S.ok ? 'SIM' : 'NAO',
     motivo:          S.motivo || 'N/A',
     timestamp:       new Date().toISOString(),
-    origem:          'Quiz GL',
-    utm_source:      UTM.utm_source,
-    utm_medium:      UTM.utm_medium,
-    utm_campaign:    UTM.utm_campaign,
-    utm_content:     UTM.utm_content,
-    utm_source:      UTM.utm_source,
-    utm_medium:      UTM.utm_medium,
-    utm_campaign:    UTM.utm_campaign,
-    utm_content:     UTM.utm_content
+    origem:          'Quiz GL'
   };
 
-
-  // ── PIXEL: Lead + CAPI ──
+  // ══════════════════════════════════════════════════
+  // PIXEL: Lead — todos os dados preenchidos e enviados
+  // Dispara client-side (fbq) + server-side (CAPI)
+  // event_id garante deduplicação entre os dois canais
+  // ══════════════════════════════════════════════════
   const leadEventId = 'lead_quiz_gl_' + Date.now();
+
   fbq('track', 'Lead', {
-    content_name: 'Quiz - Diagnóstico Gratuito GL',
+    content_name:     'Quiz - Diagnóstico Gratuito GL',
     content_category: S.ans.segmento || 'quiz',
-    currency: 'BRL', value: 0
+    currency:         'BRL',
+    value:            0
   }, { eventID: leadEventId });
+
   sendCAPI('Lead', leadEventId,
     { name: S.ans.nome, phone: S.ans.tel },
-    { content_name: 'Quiz - Diagnóstico Gratuito GL',
-      content_category: S.ans.segmento || 'quiz', currency: 'BRL', value: 0 }
+    {
+      content_name:     'Quiz - Diagnóstico Gratuito GL',
+      content_category: S.ans.segmento || 'quiz',
+      currency:         'BRL',
+      value:            0
+    }
   );
+  // ══════════════════════════════════════════════════
 
-  // ── MOSTRAR LOADING ──
+  // ── MOSTRAR LOADING SÓ 1 SEGUNDO — FIXO ──
   // O webhook é disparado em paralelo — NÃO bloqueia o loading
   const overlay = document.getElementById('loadingOverlay');
   overlay.classList.add('visible');
@@ -593,19 +599,30 @@ function submitForm() {
     go('screen-6', dest);
     S.cur = S.ok ? 7 : 8;
 
-    // ── PIXEL: CompleteRegistration ──
+    // ══════════════════════════════════════════════════
+    // PIXEL: CompleteRegistration — somente leads qualificados
+    // Dispara após confirmação de qualificação na tela de sucesso
+    // ══════════════════════════════════════════════════
     if (S.ok) {
       const crEventId = 'complete_reg_quiz_gl_' + Date.now();
       fbq('track', 'CompleteRegistration', {
         content_name: 'Quiz - Diagnóstico Gratuito GL',
-        status: 'qualificado', currency: 'BRL', value: 0
+        status:       'qualificado',
+        currency:     'BRL',
+        value:        0
       }, { eventID: crEventId });
+
       sendCAPI('CompleteRegistration', crEventId,
         { name: S.ans.nome, phone: S.ans.tel },
-        { content_name: 'Quiz - Diagnóstico Gratuito GL',
-          status: 'qualificado', currency: 'BRL', value: 0 }
+        {
+          content_name: 'Quiz - Diagnóstico Gratuito GL',
+          status:       'qualificado',
+          currency:     'BRL',
+          value:        0
+        }
       );
     }
+    // ══════════════════════════════════════════════════
 
   }, 1000);
 }
