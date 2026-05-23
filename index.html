@@ -17,7 +17,7 @@
     --red:#EF4444; --red-dim:rgba(239,68,68,0.12);
   }
   * { margin:0; padding:0; box-sizing:border-box; -webkit-font-smoothing:antialiased; }
-  html,body { min-height:100%; font-family:'DM Sans',sans-serif; background:var(--black); color:var(--white); overflow-x:hidden; }
+  html,body { min-height:100%; font-family:'DM Sans',sans-serif; background:var(--black); color:var(--white); overflow-x:hidden; overflow-y:auto; }
   body::after { content:''; position:fixed; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px); pointer-events:none; z-index:9999; }
   #app { min-height:100vh; display:flex; flex-direction:column; position:relative; overflow-x:hidden; }
   .bg-glow { position:fixed; border-radius:50%; filter:blur(120px); pointer-events:none; z-index:0; }
@@ -35,7 +35,7 @@
   .progress-fill { height:100%; background:linear-gradient(90deg,var(--green2),var(--green),var(--green3)); border-radius:100px; transition:width 0.6s cubic-bezier(.4,0,.2,1); box-shadow:0 0 8px var(--green-glow); }
 
   /* MAIN */
-  .main { flex:1; position:relative; z-index:10; display:flex; align-items:flex-start; justify-content:center; padding:20px 20px 40px; overflow-y:auto; }
+  .main { flex:1; position:relative; z-index:10; display:flex; align-items:flex-start; justify-content:center; padding:20px 20px 60px; overflow-y:auto; }
 
   /* SCREENS */
   .screen { width:100%; max-width:640px; position:absolute; opacity:0; transform:translateX(60px); transition:all 0.4s cubic-bezier(.4,0,.2,1); pointer-events:none; z-index:1; }
@@ -448,19 +448,6 @@ async function sendCAPI(eventName, eventId, userData, customData) {
     });
   } catch(e) {}
 }
-
-
-// ── UTM CAPTURE ──
-function getUTM() {
-  const p = new URLSearchParams(window.location.search);
-  return {
-    utm_source:   p.get('utm_source')   || 'direto',
-    utm_medium:   p.get('utm_medium')   || 'organico',
-    utm_campaign: p.get('utm_campaign') || 'sem-campanha',
-    utm_content:  p.get('utm_content')  || '',
-  };
-}
-const UTM = getUTM();
 
 
 
